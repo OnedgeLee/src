@@ -4,7 +4,7 @@ from std_msgs.msg import String
 from math import degrees, atan, sqrt
 
 mv_avg   = 30
-time_thr = 0.004
+time_thr = 0.003
 min_angle_diff = 0.01
 r   = 1
 p   = 2
@@ -58,8 +58,8 @@ def ser_init() :
 
 def angle_init(_rl, _mvavg) :
     time.sleep(1)
-    # _r, _p, _y = 0, 0, 0
-    _r, _p = 0, 0
+    _r, _p, _y = 0, 0, 0
+    # _r, _p = 0, 0
     while True :
         if len(_rl.readline()) > 0 :
             break
@@ -67,18 +67,18 @@ def angle_init(_rl, _mvavg) :
         _parsed = raw_parsing(_rl.readline())
         _r += float(_parsed[r])
         _p += float(_parsed[p])
-        # _y += float(_parsed[y])
+        _y += float(_parsed[y])
     _r = _r/_mvavg
     _p = _p/_mvavg
-    # _y = _y/_mvavg
-    # return _r, _p, _y
-    return _r, _p
+    _y = _y/_mvavg
+    # return _r, _p
+    return _r, _p, _y
 
 def main() :
     pub_imu_data = rospy.Publisher('imu_data', String, queue_size=10)
     ser = ser_init()
     rl  = ReadLine(ser)
-    r0, p0 = angle_init(rl, mv_avg)
+    r0, p0, y0 = angle_init(rl, mv_avg)
     f_dir  = 0
     # r0, p0, y0 = angle_init(rl, mv_avg)
     # print("r, p init value", r0, p0)
@@ -88,11 +88,11 @@ def main() :
         try :
             raw        = rl.readline()
             parsed     = raw_parsing(raw)
-            # R, P, Y    = float(parsed[r]), float(parsed[p]), float(parsed[y])
+            R, P, Y    = float(parsed[r]), float(parsed[p]), float(parsed[y])
             t1 = time.time()
             elapsed = t1 - t0
             # print("elapsed", elapsed)
-            R, P       = float(parsed[r]), float(parsed[p])
+            # R, P       = float(parsed[r]), float(parsed[p])
             aX, aY, aZ = float(parsed[ax]), float(parsed[ay]), float(parsed[az])
             if elapsed > time_thr :
                 r_diff, p_diff = R-R0, P-P0
@@ -120,8 +120,10 @@ def main() :
                             f_dir = 2
                     elif p_diff > 0 :
                         if r_diff > min_angle_diff :
+                        # if r_diff > 0 :
                             f_dir = 4
                         elif r_diff < -min_angle_diff :
+                        # elif r_diff < 0 :
                             f_dir = 3
                     elif p_diff < 0 :
                         if r_diff > min_angle_diff :
@@ -131,7 +133,7 @@ def main() :
                         # put elif here for abs(r_diff) < 0 ?
 
                     magnitude = round(sqrt(r_rate**2 + p_rate**2), 2)
-                    pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(round(angle, 2)) + "," + str(magnitude)
+                    pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(Y-y0) + "," + str(round(angle, 2)) + "," + str(magnitude)
                     # print(pub_msg)
                     pub_imu_data.publish(pub_msg)
                     print("angle", round(angle, 2), round((R-R0), 2), round((P-P0), 2), "magnitude", magnitude)
@@ -140,13 +142,13 @@ def main() :
                         f_dir = 2
                         angle = 0
                         magnitude = round(abs(p_diff/elapsed), 2)
-                        pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(round(angle, 2)) + "," + str(magnitude)
+                        pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(Y-y0) + str(angle) + "," + str(magnitude)
                         pub_imu_data.publish(pub_msg)
                     else :
                         f_dir = 4
                         angle = 0
                         magnitude = round(abs(p_diff/elapsed), 2)
-                        pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(round(angle, 2)) + "," + str(magnitude)
+                        pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(Y-y0) + "," + str(angle) + "," + str(magnitude)
                         pub_imu_data.publish(pub_msg)
                 # R0, P0 and time Update
                 R0, P0 = R, P
