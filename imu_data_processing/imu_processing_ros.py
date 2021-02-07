@@ -1,11 +1,11 @@
-#%%
-import serial, time
-import matplotlib.pyplot as plt
+#!/usr/bin/env python
+import serial, time, rospy
+from std_msgs.msg import String
 from math import degrees, atan, sqrt
 
 mv_avg   = 30
 time_thr = 0.004
-min_angle_diff = 0.02
+min_angle_diff = 0.01
 r   = 1
 p   = 2
 y   = 3
@@ -14,6 +14,8 @@ ay  = 5
 az  = 6
 WIN = False
 
+rospy.init_node("imu_processing", anonymous=False)
+rate = rospy.Rate(1000)
 class ReadLine:
     def __init__(self, s) :
         self.buf = bytearray()
@@ -47,7 +49,7 @@ def ser_init() :
     if WIN :
         _ser = serial.Serial(port='COM5', baudrate=921600)
     else :
-        _ser = serial.Serial(port='/dev/ttyUSB0', baudrate=921600)
+        _ser = serial.Serial(port='/dev/ttyUSB1', baudrate=921600)
     _ser.close()
     time.sleep(0.3)
     _ser.open()
@@ -73,14 +75,16 @@ def angle_init(_rl, _mvavg) :
     return _r, _p
 
 def main() :
+    pub_imu_data = rospy.Publisher('imu_data', String, queue_size=10)
     ser = ser_init()
     rl  = ReadLine(ser)
     r0, p0 = angle_init(rl, mv_avg)
+    f_dir  = 0
     # r0, p0, y0 = angle_init(rl, mv_avg)
     # print("r, p init value", r0, p0)
     R0, P0 = r0, p0
     t0 = time.time()
-    while True :
+    while not rospy.is_shutdown() :
         try :
             raw        = rl.readline()
             parsed     = raw_parsing(raw)
@@ -95,25 +99,59 @@ def main() :
                 r_rate, p_rate = r_diff/elapsed, p_diff/elapsed
                 # print("rp, %.4f, %.4f, %.4f, %.4f" %(R, P, round(r_rate, 2), round(p_rate, 2)))
                 try :
-                    if abs(r_diff) < min_angle_diff :
-                        if abs(p_diff) < min_angle_diff :
-                            angle = degrees(atan(abs(p_diff/r_diff)))
+                    angle = degrees(atan(abs(r_diff/p_diff)))
+                    if p_diff > min_angle_diff :
+                        if r_diff > min_angle_diff :
+                            f_dir = 4
+                        elif r_diff < -min_angle_diff :
+                            f_dir = 3
+                        elif r_diff > 0 :
+                            f_dir = 4
                         else :
-                            angle = degrees(atan(p_diff/abs(r_diff)))
-                    else :
-                        if abs(p_diff) < min_angle_diff :
-                            angle = degrees(atan(abs(p_diff)/r_diff))
+                            f_dir = 3
+                    elif p_diff < -min_angle_diff :
+                        if r_diff > min_angle_diff :
+                            f_dir = 1
+                        elif r_diff < -min_angle_diff :
+                            f_dir = 2
+                        elif r_diff > 0 :
+                            f_dir = 1
                         else :
-                            angle = degrees(atan(p_diff/r_diff))
+                            f_dir = 2
+                    elif p_diff > 0 :
+                        if r_diff > min_angle_diff :
+                            f_dir = 4
+                        elif r_diff < -min_angle_diff :
+                            f_dir = 3
+                    elif p_diff < 0 :
+                        if r_diff > min_angle_diff :
+                            f_dir = 1
+                        elif r_diff < -min_angle_diff :
+                            f_dir = 2
+                        # put elif here for abs(r_diff) < 0 ?
+
                     magnitude = round(sqrt(r_rate**2 + p_rate**2), 2)
+                    pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(round(angle, 2)) + "," + str(magnitude)
+                    # print(pub_msg)
+                    pub_imu_data.publish(pub_msg)
                     print("angle", round(angle, 2), round((R-R0), 2), round((P-P0), 2), "magnitude", magnitude)
                 except ZeroDivisionError :
-                    if abs(p_rate) > 0 :
-                        angle = 90
-                        # print(angle)
+                    if p_diff < 0 :
+                        f_dir = 2
+                        angle = 0
+                        magnitude = round(abs(p_diff/elapsed), 2)
+                        pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(round(angle, 2)) + "," + str(magnitude)
+                        pub_imu_data.publish(pub_msg)
+                    else :
+                        f_dir = 4
+                        angle = 0
+                        magnitude = round(abs(p_diff/elapsed), 2)
+                        pub_msg   = str(f_dir) + "," + str(R-r0) + "," + str(P-p0) + "," + str(round(angle, 2)) + "," + str(magnitude)
+                        pub_imu_data.publish(pub_msg)
                 # R0, P0 and time Update
                 R0, P0 = R, P
                 t0 = t1
+                rate.sleep()
 
         except KeyboardInterrupt :
             ser.close()
