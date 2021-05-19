@@ -32,6 +32,48 @@ roi_img = cv2.bitwise_and(img2, mk)
 
 #%%
 
+# k-means clustering
+img = np.float32(roi_img)
+img = img.reshape((-1, 1)) # Vectorization
+
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.1)
+k = 2
+
+ret, label, center = cv2.kmeans(img, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+
+center = np.uint8(center)
+res  = center[label.flatten()]
+res2 = res.reshape((roi_img.shape))
+
+contours, hierarchy = cv2.findContours(res2, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+area_thr = 10000
+c_max = list()
+for i in range(len(contours)) :
+    cnt  = contours[i]
+    area = cv2.contourArea(cnt)
+    
+    # Small Contour Area Rejection
+    if area < area_thr :
+        c_min = list()
+        c_min.append(cnt)
+        
+        cv2.drawContours(res2, c_min, -1, (0, 0, 0), thickness=-1)
+        continue
+    
+    c_max.append(cnt)
+
+cv2.drawContours(res2, c_max, -1, (255, 255, 255), thickness=-1)
+edge = cv2.Canny(res2, 0, 0)
+
+cv2.namedWindow('res2', cv2.WINDOW_NORMAL)
+cv2.namedWindow('edge', cv2.WINDOW_NORMAL)
+cv2.imshow('res2', res2)
+cv2.imshow('edge', edge)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+#%%
 # Gradient Section
 
 diff_list = list()
@@ -49,7 +91,6 @@ for _inter in inter_list :
 # roi_img = 255 - roi_img
 sobely = cv2.Sobel(roi_img, cv2.CV_8U, 0, 1, ksize=5)
 denoised_img1 = cv2.fastNlMeansDenoising(roi_img, None, 10, 7, 21) # NLmeans
-
 dst4 = cv2.bilateralFilter(roi_img,9,75,75)
 dst5 = cv2.medianBlur(roi_img, 9)
 th2_i = cv2.adaptiveThreshold(roi_img,255,cv2.ADAPTIVE_THRESH_MEAN_C,\
@@ -273,6 +314,7 @@ def onChange_th1(k) :
         if c == ord('s') :
             cv2.imwrite('/Users/shetshield/Desktop/python_ws/processed.png', src_)
             cv2.destroyAllWindows()
+
 def onChange_th2(k) :
     global th2
     if k > 0 :
@@ -317,6 +359,7 @@ def onChange_th3(k) :
         cv2.imshow('Canny', src_)
         cv2.imshow('src', _src)
         cv2.imshow('edge', dst1)
+
 def main() :
     cv2.namedWindow('src', cv2.WINDOW_NORMAL)
     cv2.namedWindow('Canny', cv2.WINDOW_NORMAL)
@@ -385,4 +428,3 @@ def main() :
 
 if __name__=="__main__" :
     main()
-
