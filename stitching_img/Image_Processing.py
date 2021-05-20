@@ -31,7 +31,7 @@ roi_img = cv2.bitwise_and(img2, mk)
 # roi_img = 255-roi_img
 
 #%%
-
+from copy import deepcopy
 # k-means clustering
 img = np.float32(roi_img)
 img = img.reshape((-1, 1)) # Vectorization
@@ -89,12 +89,25 @@ y_ = y_.reshape(-1, 1)
 from sklearn import linear_model
 reg = linear_model.LinearRegression()
 
+ransac = linear_model.RANSACRegressor()
+ransac.fit(x_, y_)
+inlier_mask  = ransac.inlier_mask_
+outlier_mask = np.logical_not(inlier_mask)
+line = ransac.predict(x_)
+print(line, len(line))
 reg.fit(x_, y_)
 print("Linear Approx Time", round(time.time()-st, 2))
 print(reg.coef_, reg.intercept_)
 p1 = (0, int(reg.coef_[0][0]*0 + reg.intercept_[0]))
 p2 = (W, int(reg.coef_[0][0]*W + reg.intercept_[0]))
-lin_approx = cv2.line(roi_img, p1, p2, (255, 255, 255), 2)
+roi_  = deepcopy(roi_img)
+lin_approx  = cv2.line(roi_, p1, p2, (255, 255, 255), 2)
+roi__ = deepcopy(roi_img)
+for x in range(W) :
+    pt = (x, line[x])
+    pix = cv2.remap(roi__, np.array(pt[0], np.float32), np.array(pt[1], np.float32), cv2.INTER_LINEAR)
+    print(pix)
+    cv2.circle(roi__, pix, 1, (255, 255, 255), -1)
 
 X = np.array(X)
 from sklearn.preprocessing import PolynomialFeatures
@@ -109,6 +122,6 @@ print(lin_reg.intercept_, lin_reg.coef_)
 cv2.namedWindow('linear_approx', cv2.WINDOW_NORMAL)
 cv2.namedWindow('edge', cv2.WINDOW_NORMAL)
 cv2.imshow('linear_approx', lin_approx)
-cv2.imshow('edge', edge)
+cv2.imshow('edge', roi__)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
