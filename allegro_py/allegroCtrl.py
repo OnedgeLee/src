@@ -4,7 +4,7 @@ sys.path.append("/Users/user/Downloads/PCAN-Basic API/samples/python")
 from PCANBasic import *
 from math import pi, degrees, radians
 import threading, time, struct
-from ctypes import c_short
+import numpy as np
 
 # CAN Comm. Instance
 pcan = PCANBasic()
@@ -75,7 +75,11 @@ homePos = [ 0,  10, 45, 45,
 """ Define Function """
 def cmd_req_finger_pose(_ch, _ind) :
     if _ind == "a" :
-        for _ID in FINGER_IDS :
+        _j = np.zeros((4, 4))
+    else :
+        _j = np.zeros((1, 4))
+    if _ind == "a" :
+        for _i, _ID in enumerate(FINGER_IDS) :
             _msg = TPCANMsg()
             _msg.ID  = (_ID << 2) | CAN_ID
             _msg.LEN = 0
@@ -91,6 +95,10 @@ def cmd_req_finger_pose(_ch, _ind) :
                 _data4 = round((_res[1].DATA[6] | (_res[1].DATA[7] << 8))*HZ/RESOL, 2)
                 print("FINGER_%s" %(_ID-31), "%6.2f deg" %(_data1), 
                       "%6.2f deg" %(_data2), "%6.2f deg" %(_data3), "%6.2f deg" %(_data4))
+                _j[_i, 0] = _data1
+                _j[_i, 1] = _data2
+                _j[_i, 2] = _data3
+                _j[_i, 3] = _data4
     else :
         _msg = TPCANMsg()
         _ID  = FINGER_POS_1
@@ -106,8 +114,14 @@ def cmd_req_finger_pose(_ch, _ind) :
             _data2 = round((_res[1].DATA[2] | (_res[1].DATA[3] << 8))*HZ/RESOL, 2)
             _data3 = round((_res[1].DATA[4] | (_res[1].DATA[5] << 8))*HZ/RESOL, 2)
             _data4 = round((_res[1].DATA[6] | (_res[1].DATA[7] << 8))*HZ/RESOL, 2)
-            print("FINGER_%s" %(_ID-31), "%6.2f deg" %(_data1), 
-                  "%6.2f deg" %(_data2), "%6.2f deg" %(_data3), "%6.2f deg" %(_data4))
+            # print("FINGER_%s" %(_ID-31), "%6.2f deg" %(_data1), 
+            #      "%6.2f deg" %(_data2), "%6.2f deg" %(_data3), "%6.2f deg" %(_data4))
+            _j[0, 0] = _data1
+            _j[0, 1] = _data2
+            _j[0, 2] = _data3
+            _j[0, 3] = _data4
+            # _j.append(_tmp)
+    return _j
 
 def cmd_set_finger_pose(_ch, _fP) :
     # _fP : Finger Pose Vector
@@ -117,7 +131,7 @@ def cmd_set_finger_pose(_ch, _fP) :
         _msg.ID  = (_ID << 2) | CAN_ID
         _msg.LEN = 8
         _msg.MSGTYPE = STD_MSG
-        
+
         # Finger Pose Set
         _msg.DATA[0] = ((_fP[0])      & 0x00ff)
         _msg.DATA[1] = ((_fP[0] >> 8) & 0x00ff)
@@ -130,28 +144,7 @@ def cmd_set_finger_pose(_ch, _fP) :
 
         _msg.DATA[6] = ((_fP[3])      & 0x00ff)
         _msg.DATA[7] = ((_fP[3] >> 8) & 0x00ff)
-        """
-        _msg.DATA[0] = ((c_short(_fP[0]).value)      & 0x00ff)
-        _msg.DATA[1] = ((c_short(_fP[0]).value >> 8) & 0x00ff)
 
-        _msg.DATA[2] = ((c_short(_fP[1]).value)      & 0x00ff)
-        _msg.DATA[3] = ((c_short(_fP[1]).value >> 8) & 0x00ff)
-
-        _msg.DATA[4] = ((c_short(_fP[2]).value)      & 0x00ff)
-        _msg.DATA[5] = ((c_short(_fP[2]).value >> 8) & 0x00ff)
-
-        _msg.DATA[6] = ((c_short(_fP[3]).value)      & 0x00ff)
-        _msg.DATA[7] = ((c_short(_fP[3]).value >> 8) & 0x00ff)
-
-        _msg.DATA[0] = ((_fP[0]))
-        _msg.DATA[1] = ((_fP[1]))
-        _msg.DATA[2] = ((_fP[2]))
-        _msg.DATA[3] = ((_fP[3]))
-        _msg.DATA[4] = ((_fP[4]))
-        _msg.DATA[5] = ((_fP[5]))
-        _msg.DATA[6] = ((_fP[6]))
-        _msg.DATA[7] = ((_fP[7]))
-        """
         _ = pcan.Write(_ch, _msg)
 
 def cmd_set_finger_torque(_ch, _tq, _ind) :
@@ -162,17 +155,17 @@ def cmd_set_finger_torque(_ch, _tq, _ind) :
             _msg.ID  = (_ID << 2) | CAN_ID
             _msg.LEN = 8
             _msg.MSGTYPE = STD_MSG
-    
+
             # Finger Pose Set
             _msg.DATA[0] = ((_tq[0])      & 0x00ff)
             _msg.DATA[1] = ((_tq[0] >> 8) & 0x00ff)
-    
+
             _msg.DATA[2] = ((_tq[1])      & 0x00ff)
             _msg.DATA[3] = ((_tq[1] >> 8) & 0x00ff)
-    
+
             _msg.DATA[4] = ((_tq[2])      & 0x00ff)
             _msg.DATA[5] = ((_tq[2] >> 8) & 0x00ff)
-    
+
             _msg.DATA[6] = ((_tq[3])      & 0x00ff)
             _msg.DATA[7] = ((_tq[3] >> 8) & 0x00ff)
 
@@ -238,28 +231,54 @@ def cmd_hand_preprocess(_ch) :
     print("Hand Ready")
 
 try :
-    cmd_hand_preprocess(PCAN_CH)
-    st = time.time()
-    while time.time() - st < 3 :
-        cmd_set_finger_pose(PCAN_CH, homePos)
+    # cmd_hand_preprocess(PCAN_CH)
+    cmd_set_period(PCAN_CH)
+    prev_pos          = np.zeros((1, 4))
+    cur_pos_filtered  = np.zeros((1, 4))
+    prev_pos_filtered = np.zeros((1, 4))
+    prev_vel          = np.zeros((1, 4))
+    cur_vel           = np.zeros((1, 4))
+
+    counter = 0
+    while abs(prev_pos[0][0]) < 0.01 :
+        prev_pos = np.radians(cmd_req_finger_pose(PCAN_CH, "b"))
+        counter += 1
+    t1 = time.time()
+    print(prev_pos, counter)
     while True :
-        cmd_req_finger_pose(PCAN_CH, "b")
-        key = input()
-        if key == "1" :
-            st = time.time()
-            cmd_servo_on(PCAN_CH)
-            while time.time() - st < 10 :
-                desired_torque = [100, -250, 250, 50]
-                cmd_set_finger_torque(PCAN_CH, desired_torque, "a")
-        elif key == "2" :
-            st = time.time()
-            cmd_servo_on(PCAN_CH)
-            while time.time() - st < 10 :
-                desired_torque = [int(struct.pack("!f", 0.75)), int(struct.pack("!f", 1.0)), int(struct.pack("!f", 0.5)), int(struct.pack("!f", 0.7))]
-                cmd_set_finger_torque(PCAN_CH, desired_torque, "a")
-        elif key == "3" :
-            desried_torque = [0, 0, 0, 0]
+        cur_pos = np.radians(cmd_req_finger_pose(PCAN_CH, "b"))
+        if len(cur_pose) > 0 :
+            t2 = time.time()
+            elapsed = t2 - t1
+            if elapsed > 0.005 :
+                t1 = t2
+                print(cur_pos, prev_pos, elapsed)
+                for i in range(len(cur_pos_filtered.shape[1])) :
+                    cur_pos_filtered[0, i] = 0.6 * cur_pos_filtered[0, i] \
+                                          + 0.198 * prev_pos[0, i] + 0.198 * cur_pos[0, i]
+                    cur_vel[0, i] = (cur_pos_filtered[0, i] - prev_pos_filtered[0, i])/elapsed
+                    cur_vel_filtered[0, i] = (0.6 * cur_vel_filtered[0, i]) + \
+                                          + (0.198 * prev_vel[0, i]) + (0.198 * cur_vel[0, i])
+                    cur_vel[0, i] = (cur_pos[0, i] - prev_pos[0, i])/elapsed
+
+                    # previous attribute update
+                    prev_pos[0, i] = cur_pos[0, i]
+                    prev_pos_filtered[0, i] = cur_pos_filtered[0, i]
+                    prev_vel[0, i] = cur_vel[0, i]
+        else :
+            pass
+    """
+    key = input()
+    if key == "1" :
+        st = time.time()
+        cmd_servo_on(PCAN_CH)
+        while time.time() - st < 10 :
+            desired_torque = [100, -250, 250, 50]
             cmd_set_finger_torque(PCAN_CH, desired_torque, "a")
+    elif key == "2" :
+        desried_torque = [0, 0, 0, 0]
+        cmd_set_finger_torque(PCAN_CH, desired_torque, "a")
+    """
 except :
     print("Closed")
     cmd_servo_off(PCAN_CH)
