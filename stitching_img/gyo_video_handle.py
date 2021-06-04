@@ -22,8 +22,12 @@ mask = cv2.fillConvexPoly(mask, points1, (255, 255, 255))
 mask = cv2.fillConvexPoly(mask, points2, (255, 255, 255))
 
 roi  = np.zeros((img.shape[0], img.shape[1]), np.uint8)
-points3 = np.array([[150, 515], [660, 505], [660, 280], [150, 290]], np.int32)
-roi  = cv2.fillConvexPoly(roi, points3, (255, 255, 255))
+roi  = cv2.rectangle(roi, (140, 290), (660, 515), (255, 255, 255), -1)
+
+# points3 = np.array([[150, 515], [660, 505], [660, 280], [150, 290]], np.int32)
+# roi  = cv2.fillConvexPoly(roi, points3, (255, 255, 255))
+
+# t_img = cv2.bitwise_and(img2, img2, mask=points3)
 
 rroi = cv2.bitwise_and(org, org, mask=roi)
 
@@ -51,9 +55,32 @@ cv2.drawContours(edge, c_max, -1, 255, thickness=-1)
 
 # contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 # mask = cv2.drawContours(mask, contours, -1, [255, 255, 255], thickness=-1)
+"""
 cv2.imshow("mask", mask)
 cv2.imshow("img", img)
-cv2.imshow("img2", img2)
+cv2.imshow("img2", rroi)
 cv2.imshow("org", edge)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+"""
+capture = cv2.VideoCapture(cv2.samples.findFileOrKeep("/Users/shetshield/Desktop/python_ws/test1.mp4"))
+bg = cv2.imread("/Users/shetshield/Desktop/python_ws/super_resol/bg.png")
+if not capture.isOpened():
+    print('Unable to open: ' + "test1.mp4")
+    exit(0)
+while True:
+    ret, frame = capture.read()
+    if frame is None:
+        break
+    frm = cv2.bitwise_and(frame, frame, mask=roi)
+    
+    cv2.imshow('Frame', frame)
+    # cv2.imshow('FG Mask', fgMask)
+    cv2.imshow('diff', frm)
+    
+    keyboard = cv2.waitKey(5) & 0xFF
+    if keyboard == 'q' or keyboard == 27:
+        cv2.destroyAllWindows()
+        break
+cv2.destroyAllWindows()
+capture.release()
