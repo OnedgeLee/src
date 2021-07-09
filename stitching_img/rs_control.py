@@ -9,29 +9,37 @@ def main() :
         dev = rs_ctx.devices[i].get_info(rs.camera_info.serial_number)
         if dev == "f0190539" :
             RS = dev
-    
+
     devices = rs_ctx.query_devices()
-    print(len(devices))
+    # print(len(devices))
     sensor = devices[0].query_sensors()[1] # 0 is current cam # 1 is color_sensors
+    # devices[0].hardware_reset()
+    # time.sleep(2)
     exp      = sensor.get_option(rs.option.exposure) # Get exposure
     exp_rng  = sensor.get_option_range(rs.option.exposure)
+    print("exp range", exp_rng.max, exp_rng.min)
     gn       = sensor.get_option(rs.option.gain) # Get gain
+    gn_rng   = sensor.get_option_range(rs.option.gain)
+    print("gain range", gn_rng.max, gn_rng.min)
     contrast = sensor.get_option(rs.option.contrast)
     cont_rng = sensor.get_option_range(rs.option.contrast)
     auto_exp = sensor.get_option(rs.option.enable_auto_exposure)
     auto_exp_range = sensor.get_option_range(rs.option.enable_auto_exposure)
     # auto_exp = sensor.get_option(rs.option.auto_exposure_mode)
     # emit = sensor.get_option(rs.option.emitter_enabled) # Get emitter status
-    print(exp, gn, exp_rng, contrast, cont_rng, auto_exp, auto_exp_range)
-    
+    # print(exp, gn, exp_rng, contrast, cont_rng, auto_exp, auto_exp_range)
+
+    # GAIN     : 0 ~ 4096
+    # EXPOSURE : 1 ~ 10000
     sensor.set_option(rs.option.enable_auto_exposure, 0)
-    # sensor.set_option(rs.option.exposure, 124.0)
+    sensor.set_option(rs.option.exposure, 1.0)
+    sensor.set_option(rs.option.gain, 8.0)
     time.sleep(1)
-    
+
     exp      = sensor.get_option(rs.option.exposure) # Get exposure
     auto_exp = sensor.get_option(rs.option.enable_auto_exposure)
     print(exp, auto_exp)
-    
+
     if RS :
         pipe = rs.pipeline()
         cfg  = rs.config()
@@ -39,13 +47,12 @@ def main() :
         cfg.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 60)
         pipe.start(cfg)
         time.sleep(0.5)
-        
+
         counter = 0
         cv2.namedWindow("dst", cv2.WINDOW_NORMAL)
 
         while True :
             st = time.time()
-            
             frame = pipe.wait_for_frames()
             c_frm = frame.get_color_frame()
             c_img = np.asanyarray(c_frm.get_data())
@@ -55,10 +62,10 @@ def main() :
                 sensor.set_option(rs.option.exposure, 200)
                 time.sleep(0.01)
                 counter = 1
-            else :
-                sensor.set_option(rs.option.exposure, 50)
-                time.sleep(0.01)
-                counter = 0
+            # else :
+            #     sensor.set_option(rs.option.exposure, 50)
+            #     time.sleep(0.01)
+            #     counter = 0
 
             print("elapsed", round(time.time() - st, 3))
             if k == 27 :
