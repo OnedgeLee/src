@@ -1,5 +1,5 @@
 #include <Wire.h>
-#include <JY901.h>
+// #include <JY901.h>
 #include <SPI.h>
 #include <Adafruit_ADS1X15.h>
 
@@ -8,9 +8,12 @@
 // uint8_t resetPin = D3;
 uint8_t ssPin    = 10;
 uint8_t resetPin = 9;
-uint8_t ch1 = 0;
-uint8_t ch2 = 6;
-uint8_t ch3 = 7;
+uint8_t ch0 = 0;
+uint8_t ch1 = 1;
+uint8_t ch2 = 2;
+uint8_t ch3 = 3;
+uint8_t ch6 = 6;
+uint8_t ch7 = 7;
 /* Only for Arduino to use SPI */
 
 /* End */
@@ -46,7 +49,7 @@ void softreset()
 void setup() 
 {
   Serial.begin(115200);
-  if (IMU==true) JY901.StartIIC();
+  // if (IMU==true) JY901.StartIIC();
   if (DAC==true)
   {
     SPI.begin();
@@ -146,24 +149,27 @@ void loop()
             {
               
             }
+            float VOLT0 = Serial.parseFloat(SKIP_WHITESPACE, "\n");
             float VOLT1 = Serial.parseFloat(SKIP_WHITESPACE, "\n");
             float VOLT2 = Serial.parseFloat(SKIP_WHITESPACE, "\n");
             float VOLT3 = Serial.parseFloat(SKIP_WHITESPACE, "\n");
-            if (VOLT1 > 5.0 | VOLT2 > 5.0 | VOLT3 > 5.0) 
+            float VOLT6 = Serial.parseFloat(SKIP_WHITESPACE, "\n");
+            float VOLT7 = Serial.parseFloat(SKIP_WHITESPACE, "\n");
+            if (VOLT0 > 5.0 | VOLT1 > 5.0 | VOLT2 > 5.0) 
             {
               Serial.println("Terminated");
               uint16_t SIG = (uint16_t) (0);
               setAllChVolt(SIG);
               break;
             }
+            if (0.0 < VOLT0 && VOLT0 < 5.1)
+            {
+              uint16_t SIG0 = (uint16_t) (VOLT0 * BIT_CONV);
+              setChVolt(SIG0, ch0);
+            }
             if (0.0 < VOLT1 && VOLT1 < 5.1)
             {
               uint16_t SIG1 = (uint16_t) (VOLT1 * BIT_CONV);
-              setChVolt(SIG1, ch1);
-            }
-            else
-            {
-              uint16_t SIG1 = (uint16_t) (0);
               setChVolt(SIG1, ch1);
             }
             if (0.0 < VOLT2 && VOLT2 < 5.1)
@@ -171,22 +177,22 @@ void loop()
               uint16_t SIG2 = (uint16_t) (VOLT2 * BIT_CONV);
               setChVolt(SIG2, ch2);
             }
-            else
-            {
-              uint16_t SIG2 = (uint16_t) (0);
-              setChVolt(SIG2, ch2);
-            }
             if (0.0 < VOLT3 && VOLT3 < 5.1)
             {
               uint16_t SIG3 = (uint16_t) (VOLT3 * BIT_CONV);
               setChVolt(SIG3, ch3);
             }
-            else
+            if (0.0 < VOLT6 && VOLT6 < 5.1)
             {
-              uint16_t SIG3 = (uint16_t) (0);
-              setChVolt(SIG3, ch3);
+              uint16_t SIG6 = (uint16_t) (VOLT6 * BIT_CONV);
+              setChVolt(SIG6, ch6);
             }
-            Serial.print("V1: "); Serial.print(VOLT1); Serial.print(" "); Serial.print("V2: "); Serial.print(VOLT2); Serial.print(" "); Serial.print("V3: "); Serial.println(VOLT3);            
+            if (0.0 < VOLT7 && VOLT7 < 5.1)
+            {
+              uint16_t SIG7 = (uint16_t) (VOLT7 * BIT_CONV);
+              setChVolt(SIG7, ch7);
+            }
+            Serial.print("V0: "); Serial.print(VOLT0); Serial.print(" "); Serial.print("V1: "); Serial.print(VOLT1); Serial.print(" "); Serial.print("V2: "); Serial.print(VOLT2); Serial.print(" "); Serial.print("V3: "); Serial.print(VOLT3); Serial.print(" "); Serial.print("V6: "); Serial.print(VOLT6); Serial.print(" "); Serial.print("V7: "); Serial.println(VOLT7);
             delay(500);
           }
         }
