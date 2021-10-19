@@ -2,10 +2,10 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from matplotlib.ticker import MultipleLocator, AutoMinorLocator
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator, FuncFormatter
 from scipy.interpolate import make_interp_spline
 
-df = pd.read_csv('/Users/user/Downloads/ss.csv')
+df = pd.read_csv('/Users/user/Downloads/srm_data_plot/ss/ss.csv')
 
 df_new = df.rename(columns={'stress_60': '600 min. curing', 'stress_20': '20 min. curing'})
 
@@ -14,11 +14,14 @@ plt.rcParams["figure.autolayout"] = True
 # ax2 = df.plot(kind='scatter', x='strain', y='stress_20', ax=ax1, color='r', s = 3)
 
 ax1 = df_new.plot.line(x='strain', y='600 min. curing', c='black')
-ax1.get_legend().remove()
-# ax2 = df_new.plot.line(x='strain', y='20 min. curing', ax=ax1, ls='--', c='black')
-# ax1.legend(edgecolor='black')
+ax2 = df_new.plot.line(x='strain', y='20 min. curing', ax=ax1, ls='--', c='black')
+# ax1.get_legend().remove()
+ax1.legend(edgecolor='black')
 ax1.xaxis.set_minor_locator(AutoMinorLocator())
 ax1.yaxis.set_minor_locator(AutoMinorLocator())
+
+# Add comma to Tick
+# ax.get_xaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
 
 ax1.set_xlabel('Strain \u03B5')
 ax1.set_ylabel('Stress \u03C3 (kPa)')
