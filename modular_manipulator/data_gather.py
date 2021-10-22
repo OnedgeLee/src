@@ -27,7 +27,7 @@ class ReadLine :
                 self.buf.extend(data)
 
 def ser_init() :
-    _ser = serial.Serial(port='COM', baudrate=115200, timeout=0.01)
+    _ser = serial.Serial(port='COM29', baudrate=115200, timeout=0.01)
     _ser.close()
     time.sleep(0.5)
     _ser.open()
@@ -62,7 +62,7 @@ def angle_init(_rl, _num) :
 """ global variable and instance """
 ser = ser_init()
 rl  = ReadLine(ser)
-r0, p0, y0 = angle_init(rl, 10)
+# r0, p0, y0 = angle_init(rl, 10)
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -104,7 +104,7 @@ def rs_calc_dist(_intrinsic, _d_frm, _p) :
 def main() :
     VEC_INIT = False
     fps      = 30
-    A_thr    = 300
+    A_thr    = 500
 
     """ Green Range """
     lg = np.array([60, 100, 0])
@@ -113,7 +113,7 @@ def main() :
     RS_CAM     = list()
     rs_context = rs.context()
     for i in range(len(rs_context.devices)) :
-        detected = rs_context.devices[i].get_info(rs.camera_info.serial_number())
+        detected = rs_context.devices[i].get_info(rs.camera_info.serial_number)
         RS_CAM.append(detected)
     if len(RS_CAM) :
         pipe   = rs.pipeline()
@@ -128,7 +128,7 @@ def main() :
         align_to  = rs.stream.color
         align     = rs.align(align_to)
 
-        cv2.namedWindow("detect", cv2.WINDOW_NORMAL)
+        # cv2.namedWindow("detect", cv2.WINDOW_NORMAL)
         count = 0
         step  = 0
         # Get Image once & CAM Parameter
@@ -140,6 +140,7 @@ def main() :
         time.sleep(1)
 
         cimg = np.asanyarray(c_f.get_data())
+        # cv2.imwrite('/Users/SRBL/Desktop/gusu/img.jpg', cimg)
 
         hsv   = cv2.cvtColor(cimg, cv2.COLOR_BGR2HSV)
         mask  = cv2.inRange(hsv, lg, ug)
@@ -183,7 +184,12 @@ def main() :
             df = df.append(dc)
             df = df.reset_index(drop = True)
             print("Check")
+            # cv2.imshow('detect', cimg)
+            cv2.imwrite('/Users/SRBL/Desktop/gusu/img.jpg', cimg)
             VEC_INIT = True
+            # k = cv2.waitKey(3000) & 0xFF
+            # if k == 27 :
+            #     cv2.destroyAllWindows()
 
         # End of Vector Initialize
         if VEC_INIT :
@@ -264,7 +270,7 @@ def main() :
                                 df = df.drop(dr_list)
                                 df = df.reset_index(drop = True)
                             """
-                        cv2.imshow('detect', cimg)
+                        # cv2.imshow('detect', cimg)
                         k = cv2.waitKey(1) & 0xFF
                         if k == 27 :
                             try :
