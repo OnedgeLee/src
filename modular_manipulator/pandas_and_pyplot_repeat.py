@@ -8,6 +8,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 df = pd.read_csv('/Users/user/Downloads/repeat_res.csv')
 
+
 # df_new = df.rename(columns={'stress_60': '600 min. curing', 'stress_20': '20 min. curing'})
 
 plt.rcParams["figure.autolayout"] = True
@@ -40,5 +41,5 @@ ax.yaxis.set_minor_locator(AutoMinorLocator())
 ax.add_patch(plt.Rectangle((.42, .03), .01, 0.94, ls="--", ec="black", fc="None",
                            transform=ax.transAxes, zorder=3))
 
-ax.set_xlabel('Cycle', fontsize=12)
-ax.set_ylabel('Module height (mm)', fontsize=12)
+ax.set_xlabel('Cycle', fontsize=14)
+ax.set_ylabel('Module height (mm)', fontsize=14)
