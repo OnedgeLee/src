@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import math
 # dist = round(math.hypot(pt2[0]- pt1[0], pt2[1]- pt1[1], pt2[2]- pt1[2]), 4)
-df = pd.read_csv('/Users/user/Downloads/srm_data_plot/1.csv')
+df = pd.read_csv('/Users/user/Downloads/srm_data_plot/imu_vision/1.csv')
 
 x = df.loc[:,"x"]
 y = df.loc[:,"y"]
