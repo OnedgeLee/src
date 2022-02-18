@@ -1,23 +1,20 @@
 import numpy as np
 import gym, os
 from gym import spaces
-from stable_baselines3 import SAC
+import csv
 
-from stable_baselines3 import TD3
-from stable_baselines3.common import results_plotter
-from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.results_plotter import load_results, ts2xy, plot_results
-from stable_baselines3.common.noise import NormalActionNoise
-from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
-
-
-
-class rlEnv(gym.Env):
+class RlEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, env_name, done_step):
+    def __init__(self, env_conf):
+        self.log_dir = env_conf["log_dir"]
+        self.done_step = env_conf["done_step"]
+        
+        log_path = os.path.join(self.log_dir, "envlog.csv")
+        if os.path.exists(log_path):
+            os.remove(log_path)
+        os.makedirs(self.log_dir, exist_ok=True)
+        
         self.ob_lx = -60
         self.ob_hx = 60
         self.ob_lz = -170
@@ -49,7 +46,6 @@ class rlEnv(gym.Env):
         self.reward_range = (-float('inf'), float('inf'))
         self.metadata = {'render.modes': ['human']}
         self.spec = None
-        self.done_step = done_step
         self.prev = 0
 
         gpx = 40.0
@@ -85,7 +81,7 @@ class rlEnv(gym.Env):
 
         if self.timesteps == self.done_step or abs(self.obs[0] - self.gp[0]) < self.pos_thr and abs(self.obs[1] - self.gp[1]) < self.pos_thr and abs(self.obs[2] - self.gp[2]) < self.pos_thr:
             done = np.array([True], dtype=bool)
-            print("\n\n\n\n DONE \n\n\n\n")
+            # print("\n\n\n\n DONE \n\n\n\n")
         else:
             done = np.array([False], dtype=bool)
         actx = action[0]
@@ -112,105 +108,14 @@ class rlEnv(gym.Env):
                                        self.gp[0], self.obs[0], self.gp[1], self.obs[1],
                                        self.gp[2], self.obs[2]]
 
-        if self.timesteps % 50 == 0 :
-            print("reward", reward)
-            print("max reward", self.max_rew)
-            print("corresponding observation", self.corresponding_data)
         info = {}
         if done[0] :
             reward = 100
+            
+        # reward /= 100
+        
+        with open(os.path.join(self.log_dir, "envlog.csv"), "a") as f:
+            writer = csv.writer(f)
+            writer.writerow([reward, int(done[0]), *self.obs, *action])
         return self.obs, reward, done, info
 
-
-class SaveOnBestTrainingRewardCallback(BaseCallback):
-    """
-    Callback for saving a model (the check is done every ``check_freq`` steps)
-    based on the training reward (in practice, we recommend using ``EvalCallback``).
-
-    :param check_freq:
-    :param log_dir: Path to the folder where the model will be saved.
-      It must contains the file created by the ``Monitor`` wrapper.
-    :param verbose: Verbosity level.
-    """
-    def __init__(self, check_freq: int, log_dir: str, verbose: int = 1):
-        super(SaveOnBestTrainingRewardCallback, self).__init__(verbose)
-        self.check_freq = check_freq
-        self.log_dir = log_dir
-        self.save_path = os.path.join(log_dir, 'rlEnv')
-        self.best_mean_reward = -np.inf
-
-    def _init_callback(self) -> None:
-        # Create folder if needed
-        if self.save_path is not None:
-            os.makedirs(self.save_path, exist_ok=True)
-
-    def _on_step(self) -> bool:
-        if self.n_calls % self.check_freq == 0:
-
-          # Retrieve training reward
-          x, y = ts2xy(load_results(self.log_dir), 'timesteps')
-          if len(x) > 0:
-              # Mean training reward over the last 100 episodes
-              mean_reward = np.mean(y[-100:])
-              if self.verbose > 0:
-                print(f"Num timesteps: {self.num_timesteps}")
-                print(f"Best mean reward: {self.best_mean_reward:.2f} - Last mean reward per episode: {mean_reward:.2f}")
-
-              # New best model, you could save the agent here
-              if mean_reward > self.best_mean_reward:
-                  self.best_mean_reward = mean_reward
-                  # Example for saving best model
-                  if self.verbose > 0:
-                    print(f"Saving new best model to {self.save_path}")
-                  self.model.save(self.save_path)
-
-        return True
-
-
-
-log_dir = "/Users/shetshield/Desktop/res/220217/SAC_MDL/"
-os.makedirs(log_dir, exist_ok=True)
-
-eval_env = rlEnv('rlSAC', 1e4)
-# env = Monitor(env, log_dir)
-
-callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=-0.02, verbose=1)
-eval_callback = EvalCallback(eval_env, callback_on_new_best=callback_on_best, verbose=1)
-
-
-# n_actions = env.action_space.shape[-1]
-
-# action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.0 * np.ones(n_actions))
-model = SAC("MlpPolicy", eval_env, verbose=1)
-# model = SAC("MlpPolicy", env).learn(2e4)
-
-# callback = SaveOnBestTrainingRewardCallback(check_freq=1000, log_dir=log_dir)
-
-timesteps = 3e4
-model.learn(total_timesteps=int(timesteps), callback=eval_callback)
-
-obsv = model.env.reset()
-res = list()
-a = eval_env.action_space
-print(a)
-print(a.is_bounded())
-# img = model.env.render(mode='rgb_array')
-max_rew = -float('inf')
-for i in range(1000):
-    action, _ = model.predict(obsv)
-    obsv, rew, done ,_ = model.env.step(action)
-    res.append([obsv[0][0], obsv[0][1]])
-    print(rew[0], obsv[0])
-    if done[0] :
-        # res = obsv[0]
-        break
-    # img = model.env.render(mode='rgb_array')
-'''
-f = open("/Users/shetshield/Desktop/res/220217/SAC_t_160.txt", 'w')
-_res = str()
-for el in res :
-    _res = _res + str(el) + "," + "\n"
-f.write(_res)
-f.close()
-'''
-print(res[-2])
