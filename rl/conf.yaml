@@ -1,0 +1,14 @@
+run_config:
+  n_train: 1.e+4
+  wandb: True
+  resume: False
+  ckpt_dir: ./log/ckpt
+  check_freq: 100
+  
+env_config:
+  log_dir: ./log
+  done_step: 15000
+
+agent_config:
+  num_workers: 4
+  num_envs_per_worker: 1
