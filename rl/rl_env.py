@@ -2,120 +2,89 @@ import numpy as np
 import gym, os
 from gym import spaces
 import csv
+from utils import transform
 
 class RlEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, env_conf):
-        self.log_dir = env_conf["log_dir"]
+        self.env_conf = env_conf
         self.done_step = env_conf["done_step"]
-        
-        log_path = os.path.join(self.log_dir, "envlog.csv")
-        if os.path.exists(log_path):
-            os.remove(log_path)
+        self.log_dir = env_conf["log_dir"]
+        self.log_path = os.path.join(self.log_dir, f"envlog_{os.getpid()}.csv")
+        if os.path.exists(self.log_path):
+            os.remove(self.log_path)
         os.makedirs(self.log_dir, exist_ok=True)
         
-        self.ob_lx = -60
-        self.ob_hx = 60
-        self.ob_lz = -170
-        self.ob_hz = 170
-        self.ob_ly = -60
-        self.ob_hy = 60
-        self.pos_thr = 0.01
+        self.goal_pos = np.array(env_conf["goal_pos"], dtype=np.float32)
+        self.init_pos = np.array(env_conf["init_pos"], dtype=np.float32)
+        self.goal_threshold = env_conf["goal_threshold"]
+        
+        self.obs_bound_real = np.stack([env_conf["obs_bound_real_x"], env_conf["obs_bound_real_y"], env_conf["obs_bound_real_z"]], axis=-1).astype(np.float32)
+        self.obs_bound_norm = np.stack([env_conf["obs_bound_agent_x"], env_conf["obs_bound_agent_y"], env_conf["obs_bound_agent_z"]], axis=-1).astype(np.float32)
+        self.act_bound_real = np.stack([env_conf["act_bound_real_x"], env_conf["act_bound_real_y"], env_conf["act_bound_real_z"]], axis=-1).astype(np.float32)
+        self.act_bound_norm = np.stack([env_conf["act_bound_agent_x"], env_conf["act_bound_agent_y"], env_conf["act_bound_agent_z"]], axis=-1).astype(np.float32)
 
-        obs_lstate = np.array([-1.0, -1.0, -1.0], dtype=np.float32)
-        obs_hstate = np.array([1.0, 1.0, 1.0], dtype=np.float32)
+        self.observation_space = spaces.Box(low=self.obs_bound_norm[0], high=self.obs_bound_norm[1], shape=(3,), dtype=np.float32)
+        self.action_space = spaces.Box(low=self.obs_bound_norm[0], high=self.obs_bound_norm[1], shape=(3,), dtype=np.float32)
 
-        actlx = (-1 - self.ob_lx) / (self.ob_hx - self.ob_lx) * 2 - 1
-        acthx = (1 - self.ob_lx) / (self.ob_hx - self.ob_lx) * 2 - 1
-        actlz = (-1 - self.ob_lz) / (self.ob_hz - self.ob_lz) * 2 - 1
-        acthz = (1 - self.ob_lz) / (self.ob_hz - self.ob_lz) * 2 - 1
-        actly = (-1 - self.ob_ly) / (self.ob_hy - self.ob_ly) * 2 - 1
-        acthy = (1 - self.ob_ly) / (self.ob_hy - self.ob_ly) * 2 - 1
-
-
-        print(actlx, acthx, actlz, acthz, actly, acthy)
-        act_lstate = np.array([actlx, actly, actlz], dtype=np.float32)
-        act_hstate = np.array([acthx, acthy, acthz], dtype=np.float32)
-
-
-        self.timesteps = 0
-        self.observation_space = spaces.Box(low=obs_lstate, high=obs_hstate, shape=(3,), dtype=np.float32)
-        self.action_space = spaces.Box(low=act_lstate, high=act_hstate, shape=(3,), dtype=np.float32)
-
+        self.goal_pos_norm = transform(self.goal_pos, self.obs_bound_real, self.obs_bound_norm)
+        
         self.reward_range = (-float('inf'), float('inf'))
         self.metadata = {'render.modes': ['human']}
         self.spec = None
+        
+        self.timesteps = 0
         self.prev = 0
-
-        gpx = 40.0
-        gpy = 30.0
-        gpz = 160.0
-
-        _gpx = (gpx - self.ob_lx)/(self.ob_hx - self.ob_lx) * 2 - 1
-        _gpy = (gpy - self.ob_ly)/(self.ob_hy - self.ob_ly) * 2 - 1
-        _gpz = (gpz - self.ob_lz)/(self.ob_hz - self.ob_lz) * 2 - 1
-        self.gp = np.array([_gpx, _gpy, _gpz])
         self.max_rew = -float('inf')
-        self.corresponding_data = list()
-
 
     def reset(self):
-        ipx = 0.0
-        ipy = 0.0
-        ipz = 141.5
-        _ipx = (ipx - self.ob_lx)/(self.ob_hx - self.ob_lx) * 2 - 1
-        _ipy = (ipy - self.ob_ly)/(self.ob_hy - self.ob_ly) * 2 - 1
-        _ipz = (ipz - self.ob_lz)/(self.ob_hz - self.ob_lz) * 2 - 1
-
-        self.obs = np.array([_ipx, _ipy, _ipz], dtype=np.float32)
+        self.obs = self.init_pos
+        self.obs_norm = transform(self.obs, self.obs_bound_real, self.obs_bound_norm)
         self.timesteps = 0
-
-        return self.obs
+        return self.obs_norm
 
     def render(self):
         pass
 
-    def step(self, action):
+    def step(self, action_norm):
         self.timesteps += 1
-
-        if self.timesteps == self.done_step or abs(self.obs[0] - self.gp[0]) < self.pos_thr and abs(self.obs[1] - self.gp[1]) < self.pos_thr and abs(self.obs[2] - self.gp[2]) < self.pos_thr:
+        done = np.array([False], dtype=bool)
+        if self.timesteps >= self.done_step:
             done = np.array([True], dtype=bool)
-            # print("\n\n\n\n DONE \n\n\n\n")
-        else:
-            done = np.array([False], dtype=bool)
-        actx = action[0]
-        acty = action[1]
-        actz = action[2]
-
-        vec = self.obs + action - self.gp
-        self.obs = self.obs + action
-
-        rew_distance_penalty = -np.linalg.norm(vec)
-        delta_dist_penalty = -abs(-rew_distance_penalty - self.prev)
-        self.prev = -rew_distance_penalty
-        rew_action_penalty  = -np.square(action).sum()
-
-        # reward = 3*rew_distance_penalty + 2*delta_dist_penalty + 2*delta_x_penalty + 2*delta_z_penalty # + rew_action_penalty
-        reward = 8 * rew_distance_penalty + 5 * delta_dist_penalty + 8 * rew_action_penalty  #+ 2 * delta_x_penalty + 2 * delta_z_penalty
-        self.obs[0] = np.clip(self.obs[0], self.observation_space.low[0], self.observation_space.high[0])
-        self.obs[1] = np.clip(self.obs[1], self.observation_space.low[1], self.observation_space.high[1])
-        self.obs[2] = np.clip(self.obs[2], self.observation_space.low[2], self.observation_space.high[2])
-
+        
+        
+        action = transform(action_norm, self.act_bound_norm, self.act_bound_real)
+        self.next_obs = self.obs + action
+        self.next_obs_norm = transform(self.obs, self.obs_bound_real, self.obs_bound_norm)
+            
+        distance = np.linalg.norm(self.obs - self.goal_pos)
+        next_distance = np.linalg.norm(self.next_obs - self.goal_pos)
+        
+        rew_distance = distance - next_distance
+        reward = rew_distance
+        
+        if np.linalg.norm(np.array(self.obs - self.goal_pos)) < self.goal_threshold:
+            reward = 1
+            done = np.array([True], dtype=bool)
+        
+        if not self.observation_space.contains(self.next_obs_norm):
+            self.next_obs_norm = np.clip(self.next_obs_norm, 0, 1)
+            self.next_obs = transform(self.next_obs_norm, self.obs_bound_norm, self.obs_bound_real)
+            reward = -1
+            done = np.array([True], dtype=bool)
+        
         if reward > self.max_rew :
             self.max_rew = reward
-            self.corresponding_data = [rew_distance_penalty, delta_dist_penalty, rew_action_penalty,
-                                       self.gp[0], self.obs[0], self.gp[1], self.obs[1],
-                                       self.gp[2], self.obs[2]]
-
-        info = {}
-        if done[0] :
-            reward = 100
             
-        # reward /= 100
+        info = {}
         
-        with open(os.path.join(self.log_dir, "envlog.csv"), "a") as f:
+        self.obs = self.next_obs
+        self.obs_norm = self.next_obs_norm
+        
+        with open(self.log_path, "a") as f:
             writer = csv.writer(f)
             writer.writerow([reward, int(done[0]), *self.obs, *action])
-        return self.obs, reward, done, info
+        
+        return self.obs_norm, reward, done, info
 

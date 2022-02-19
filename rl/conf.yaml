@@ -1,5 +1,5 @@
 run_config:
-  n_train: 1.e+4
+  n_train: 1.e+10
   wandb: True
   resume: False
   ckpt_dir: ./log/ckpt
@@ -9,6 +9,27 @@ env_config:
   log_dir: ./log
   done_step: 15000
 
+  goal_pos: [40.0, 30.0, 160.0]
+  init_pos: [0.0, 0.0, 141.5]
+
+  obs_bound_real_x: [-60, 60]
+  obs_bound_real_y: [-60, 60]
+  obs_bound_real_z: [-170, 170]
+
+  obs_bound_agent_x: [0, 1]
+  obs_bound_agent_y: [0, 1]
+  obs_bound_agent_z: [0, 1]
+
+  act_bound_real_x: [-0.01666666666666672, 0.016666666666666607]
+  act_bound_real_y: [-0.01666666666666672, 0.016666666666666607]
+  act_bound_real_z: [-0.00588235294117645, 0.00588235294117645]
+
+  act_bound_agent_x: [0, 1]
+  act_bound_agent_y: [0, 1]
+  act_bound_agent_z: [0, 1]
+  
+  goal_threshold: 0.01
+  
 agent_config:
   num_workers: 4
   num_envs_per_worker: 1
